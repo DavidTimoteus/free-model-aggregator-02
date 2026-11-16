@@ -250,7 +250,7 @@ async function messages(req: IncomingMessage, res: ServerResponse): Promise<void
   }
 
   const reqs = requirementsFor(body);
-  const candidates = candidatesFor(brief, reqs, cooldowns);
+  const candidates = candidatesFor(brief, reqs, cooldowns, manifestIndex);
   if (candidates.length === 0) {
     return sendError(res, 'anthropic', 503, 'overloaded_error', 'no free model in the brief meets this request');
   }
@@ -267,7 +267,7 @@ async function messages(req: IncomingMessage, res: ServerResponse): Promise<void
       failures.push({ status: 502, code: 'upstream_unreachable', model: candidate.id });
       lastStatus = 502;
       lastErrorText = (err as Error).message;
-      cooldowns.set(candidate.id, Date.now() + COOLDOWN_DURATION_MS);
+      cooldowns.set(candidate.id, manifestIndex + COOLDOWN_PROMPT_STEPS);
       continue;
     }
 
@@ -289,7 +289,7 @@ async function messages(req: IncomingMessage, res: ServerResponse): Promise<void
       } catch {
         failures.push({ status: upstream.status, code: String(upstream.status), model: candidate.id });
       }
-      cooldowns.set(candidate.id, Date.now() + COOLDOWN_DURATION_MS);
+      cooldowns.set(candidate.id, manifestIndex + COOLDOWN_PROMPT_STEPS);
       continue;
     }
 
