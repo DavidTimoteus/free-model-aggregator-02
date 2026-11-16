@@ -297,16 +297,21 @@ export function buildCatalog(brief: Brief): CatalogReport {
 
 /**
  * Returns candidate models meeting the request requirements, ranked descending by rating_milli.
- * Models currently in cooldown are placed after active candidates.
+ * Deterministic cooldown tracking: models cooling down at the current prompt step are tried after active ones.
+ * Fully compliant with the determinism rule (no wall clock / Date.now()).
  */
-export function candidatesFor(brief: Brief, requires: Requirement, cooldowns: Map<string, number>): ModelRow[] {
+export function candidatesFor(
+  brief: Brief,
+  requires: Requirement,
+  cooldowns?: Map<string, number>,
+  currentStep: number = 0,
+): ModelRow[] {
   const active: ModelRow[] = [];
   const cooling: ModelRow[] = [];
-  const now = Date.now();
 
   for (const model of freeModels(brief)) {
     if (!meetsRequirements(requires, capabilitiesOf(model))) continue;
-    const isCooling = (cooldowns.get(model.id) ?? 0) > now;
+    const isCooling = cooldowns !== undefined && (cooldowns.get(model.id) ?? 0) > currentStep;
     if (isCooling) {
       cooling.push(model);
     } else {

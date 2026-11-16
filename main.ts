@@ -34,7 +34,7 @@ import {
 const PROTOCOL_VERSION = 1;
 const POLL_INTERVAL_MS = 100;
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
-const COOLDOWN_DURATION_MS = 60_000;
+const COOLDOWN_PROMPT_STEPS = 2;
 
 const ENV_URL = (process.env.MAKEFUN_ENV_URL ?? '').replace(/\/+$/, '');
 const PROMPT_FILE = process.env.MAKEFUN_PROMPT_FILE ?? '';
@@ -45,7 +45,7 @@ const brief = readBrief(PROMPT_FILE);
 const catalog: CatalogReport = buildCatalog(brief);
 let manifestIndex = 0;
 
-/** Timestamp after which a model may be retried without cooldown penalty. */
+/** Prompt index until which a failed model is in cooldown. Deterministic & clock-free. */
 const cooldowns = new Map<string, number>();
 
 export interface FailureRecord {
@@ -166,7 +166,7 @@ async function chat(req: IncomingMessage, res: ServerResponse): Promise<void> {
   }
 
   const reqs = requirementsFor(body);
-  const candidates = candidatesFor(brief, reqs, cooldowns);
+  const candidates = candidatesFor(brief, reqs, cooldowns, manifestIndex);
   if (candidates.length === 0) {
     return sendError(res, 'openai', 503, 'no_free_model', 'no free model in the brief meets this request');
   }
@@ -183,7 +183,7 @@ async function chat(req: IncomingMessage, res: ServerResponse): Promise<void> {
       failures.push({ status: 502, code: 'upstream_unreachable', model: candidate.id });
       lastStatus = 502;
       lastErrorText = (err as Error).message;
-      cooldowns.set(candidate.id, Date.now() + COOLDOWN_DURATION_MS);
+      cooldowns.set(candidate.id, manifestIndex + COOLDOWN_PROMPT_STEPS);
       continue;
     }
 
@@ -205,7 +205,7 @@ async function chat(req: IncomingMessage, res: ServerResponse): Promise<void> {
       } catch {
         failures.push({ status: upstream.status, code: String(upstream.status), model: candidate.id });
       }
-      cooldowns.set(candidate.id, Date.now() + COOLDOWN_DURATION_MS);
+      cooldowns.set(candidate.id, manifestIndex + COOLDOWN_PROMPT_STEPS);
       continue;
     }
 
