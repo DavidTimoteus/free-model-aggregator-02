@@ -210,7 +210,9 @@ async function chat(req: IncomingMessage, res: ServerResponse): Promise<void> {
     }
 
     // Success! Formulate failure trail header if retried
-    const extraHeaders: Record<string, string> = {};
+    const extraHeaders: Record<string, string> = {
+      'x-makefun-routed-model': candidate.id,
+    };
     if (failures.length > 0) {
       extraHeaders['x-makefun-upstream-failures'] = JSON.stringify(failures.slice(0, 8));
     }
@@ -292,7 +294,9 @@ async function messages(req: IncomingMessage, res: ServerResponse): Promise<void
     }
 
     // Success! Formulate failure trail header if retried
-    const extraHeaders: Record<string, string> = {};
+    const extraHeaders: Record<string, string> = {
+      'x-makefun-routed-model': candidate.id,
+    };
     if (failures.length > 0) {
       extraHeaders['x-makefun-upstream-failures'] = JSON.stringify(failures.slice(0, 8));
     }
